@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>七詩乃ぽんこ - Web Sampler</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; height: 100%; }
+        
+        :root {
+            --bg-color: #1a1a1a;
+            --panel-bg: #2b2b2b;
+            --accent-color: #00eaff;
+            --move-color: #ffb74d;
+            --text-color: #eee;
+            --tool-btn-bg: #3a3a3a;
+            --tool-btn-hover: #4c4c4c;
+            --play-loop-color: #00aaff;
+            --play-shot-color: #ffffff;
+            --bulk-color: #4CAF50; 
+            --reset-color: #d63031; 
+            --export-io-color: #f39c12; 
+            --import-io-color: #27ae60; 
+            --scrollbar-track: #1a1a1a;
+            --scrollbar-thumb: #444;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px; 
+            user-select: none;
+            min-height: 100vh;
+            overflow-y: auto; 
+        }
+
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #666; }
+
+        .header-row {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 10px;
+            flex-shrink: 0; 
+            flex-wrap: wrap; 
+        }
+
+        .title-group { display: flex; flex-direction: column; justify-content: center; }
+        .app-label { font-size: 12px; color: #888; margin-bottom: 2px; margin-left: 4px; font-weight: bold; letter-spacing: 1px; }
+
+        .preset-name-input {
+            font-size: 24px; font-weight: bold; color: var(--text-color);
+            background: transparent; border: 1px solid transparent; border-radius: 4px;
+            padding: 2px 8px; width: 300px; font-family: inherit; transition: all 0.2s;
+        }
+        
+        body.is-editing .preset-name-input { border-color: #555; background-color: rgba(255, 255, 255, 0.05); cursor: text; }
+        body.is-editing .preset-name-input:focus { border-color: var(--accent-color); outline: none; background-color: var(--panel-bg); }
+        .preset-name-input:disabled { color: var(--text-color); opacity: 1; -webkit-text-fill-color: var(--text-color); background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
+
+        .header-actions { display: flex; align-items: center; flex-shrink: 0; margin-left: 10px; gap: 10px; }
+
+        .global-settings {
+            display: none; gap: 10px; align-items: center; background: var(--panel-bg); 
+            padding: 5px 15px; border-radius: 20px; animation: fadeIn 0.3s;
+            flex-wrap: wrap; justify-content: flex-end; margin-left: auto; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); 
+        }
+        body.is-editing .global-settings { display: flex; }
+        
+        .header-io-btn {
+            background: none; border: 2px solid #555; color: #888; font-size: 20px;
+            cursor: pointer; width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; transition: all 0.3s;
+            margin: 4px 0; flex-shrink: 0;
+        }
+        #exportBtn { border-color: var(--export-io-color); color: var(--export-io-color); }
+        #exportBtn:hover { background: var(--export-io-color); color: #222; }
+        #importTriggerBtn { border-color: var(--import-io-color); color: var(--import-io-color); margin-left: 10px;}
+        #importTriggerBtn:hover { background: var(--import-io-color); color: #222; }
+
+        .control-group { display: flex; align-items: center; margin: 4px 0; flex-shrink: 0; }
+        .grid-input { width: 45px; background: #222; border: 1px solid #555; color: #fff; text-align: center; border-radius: 4px; padding: 4px; }
+
+        .header-icon-btn {
+            background: none; border: 2px solid #555; color: #888; font-size: 20px;
+            cursor: pointer; width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; transition: all 0.3s; flex-shrink: 0; 
+        }
+        .header-icon-btn:hover { border-color: #888; color: #fff; }
+        .v-divider { width: 1px; height: 20px; background: #666; margin: 0 10px; }
+
+        #bulkAudioBtn {
+            background: var(--bulk-color); border-color: var(--bulk-color); color: #222;
+            font-weight: bold; font-size: 14px; width: auto; border-radius: 4px; padding: 0 10px; height: 32px;
+        }
+
+        body.is-editing #settingsBtn { background: var(--accent-color); border-color: var(--accent-color); color: #222; transform: rotate(90deg); }
+        body.is-moving #moveModeBtn { background: var(--move-color); border-color: var(--move-color); color: #222; }
+
+        .reset-btn { 
+            background: var(--reset-color); color: white; border: none; padding: 6px 12px; 
+            cursor: pointer; border-radius: 4px; font-size: 14px; font-weight: bold;
+            height: 32px; margin-left: 10px; flex-shrink: 0;
+        }
+
+        .sampler-container {
+            display: grid;
+            gap: 10px;
+            width: 100%;
+            flex-grow: 1; 
+            margin-bottom: 20px; 
+        }
+
+        .pad-wrapper {
+            background: var(--panel-bg); border-radius: 8px; padding: 10px;
+            border: 1px solid #333; display: flex; flex-direction: column;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: transform 0.2s;
+        }
+        body.is-moving .pad-wrapper { cursor: move; }
+        .pad-wrapper.drag-over { border: 4px dotted var(--move-color); padding: 7px; background-color: #555; }
+
+        .pad-btn {
+            width: 100%; flex-grow: 1; min-height: 60px; 
+            background-color: #444; background-size: contain; background-position: center; background-repeat: no-repeat;
+            border: 2px solid #555; border-radius: 6px; color: #fff;
+            font-size: 24px; font-weight: 900; text-shadow: 0 2px 4px #000;
+            cursor: pointer;
+        }
+        .pad-btn.playing-loop { box-shadow: 0 0 15px var(--play-loop-color); border-color: var(--play-loop-color); }
+        .pad-btn.active-shot { border-color: var(--play-shot-color); }
+
+        .pad-settings-panel { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid #444; flex-direction: column; gap: 8px; }
+        body.is-editing:not(.is-moving) .pad-settings-panel { display: flex; }
+        
+.label-input {
+    background: #222;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 6px;
+    border-radius: 4px;
+
+    width: auto;
+    flex: 1;
+    min-width: 0; 
+    font-size: 12px;
+}
+
+
+.vol-container { display: flex; align-items: center; gap: 5px; width: 100%; font-size: 11px; }
+        .visual-tools-row { display: flex; gap: 5px; align-items: center; }
+
+.tool-group {
+    display: flex;
+    align-items: center;
+    border: 1px solid #666;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 32px;
+    background: var(--tool-btn-bg);
+    flex-shrink: 0;
+}
+        .group-btn { background: transparent; border: none; color: #ccc; width: 32px; height: 100%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .group-btn:hover { background: #555; color: #fff; }
+        .group-btn + .group-btn, .group-btn + .group-display { border-left: 1px solid #555; }
+
+        .audio-display { flex-grow: 1; padding: 0 8px; font-size: 11px; color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 32px; }
+        .loop-vol-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+        .loop-wrapper { display: flex; align-items: center; gap: 4px; background: #222; padding: 0 8px; border-radius: 4px; height: 32px; font-size: 11px; }
+
+        input[type="file"], input[type="color"] { display: none; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="header-row">
+        <div class="title-group">
+            <div class="app-label">Web Sampler</div>
+            <input type="text" id="presetNameInput" class="preset-name-input" value="Default Preset" placeholder="プリセット名を入力" spellcheck="false" disabled>
+        </div>
+
+        <div class="global-settings">
+            <div class="control-group">
+                <button class="header-io-btn" id="exportBtn" title="書き出し">📥</button>
+                <button class="header-io-btn" id="importTriggerBtn" title="読み込み">📤</button>
+                <input type="file" id="importFileInput" accept=".json">
+            </div>
+
+            <div class="control-group" style="margin-left: 10px;">
+                <button class="header-icon-btn" id="bulkAudioBtn">一括設定 🎵</button>
+                <input type="file" id="bulkFileInput" accept="audio/*" multiple>
+                <button class="reset-btn" onclick="clearAllData()">⚠ 全リセット</button>
+            </div>
+            
+            <div class="control-group" style="margin-left: 10px;">
+                <div class="v-divider"></div>
+                <span>Rows:</span>
+                <input type="number" id="rowsInput" class="grid-input" min="1" max="10" value="3">
+                <span>Cols:</span>
+                <input type="number" id="colsInput" class="grid-input" min="1" max="10" value="3">
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <button class="header-icon-btn" id="moveModeBtn" title="配置入替">✥</button>
+            <button class="header-icon-btn" id="settingsBtn" title="設定">⚙️</button>
+        </div>
+    </div>
+
+    <div class="sampler-container" id="grid"></div>
+
+<script>
+        const DB_NAME = "SamplerDB_v001"; 
+        const DB_VERSION = 1;
+        const MAX_COLS_LIMIT = 20; 
+        let db;
+
+        // 短縮記法の定義
+        const $ = (id, subId) => subId ? document.getElementById(`${id}-${subId}`) : document.getElementById(id);
+        
+        let gridRows = 3;
+        let gridCols = 3;
+
+        const container = $('grid');
+        const rowsInput = $('rowsInput');
+        const settingsBtn = $('settingsBtn');
+        const moveModeBtn = $('moveModeBtn');
+        const bulkAudioBtn = $('bulkAudioBtn');
+        const bulkFileInput = $('bulkFileInput');
+        const exportBtn = $('exportBtn');
+        const importTriggerBtn = $('importTriggerBtn');
+        const importFileInput = $('importFileInput');
+        const presetNameInput = $('presetNameInput');
+
+        const PAD_COLOR_DEFAULT = "#444444";
+        const PAD_COLOR_SHOT = "#2e7d32";
+        const PAD_COLOR_LOOP = "#1a237e";
+
+        function getFixedId(r, c) { return (r - 1) * MAX_COLS_LIMIT + c; }
+        function getCoordinateLabel(id) {
+            const r = Math.floor((id - 1) / MAX_COLS_LIMIT) + 1;
+            const c = (id - 1) % MAX_COLS_LIMIT + 1;
+            return String.fromCharCode(64 + r) + c;
+        }
+        function isAutoColor(colorHex) { return !colorHex || [PAD_COLOR_DEFAULT, PAD_COLOR_SHOT, PAD_COLOR_LOOP].includes(colorHex.toLowerCase()); }
+        function getAutoPadColor(hasAudio, isLoop) { return !hasAudio ? PAD_COLOR_DEFAULT : (isLoop ? PAD_COLOR_LOOP : PAD_COLOR_SHOT); }
+        function stripExtension(f) { return f ? f.replace(/\.[^/.]+$/, "") : ""; }
+
+        // --- Grid Core ---
+        function renderGrid() {
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${gridCols}, 1fr)`;
+            container.style.gridTemplateRows = `repeat(${gridRows}, 1fr)`;
+            for (let r = 1; r <= gridRows; r++) {
+                for (let c = 1; c <= gridCols; c++) {
+                    const id = getFixedId(r, c);
+                    createPadHTML(id, r, c);
+                    setupPad(id);
+                    loadPadData(id);
+                }
+            }
+            updateDraggability();
+            updateControlStates(document.body.classList.contains('is-editing'));
+        }
+
+        function createPadHTML(i, r, c) {
+            const coord = getCoordinateLabel(i);
+            const html = `
+                <div class="pad-wrapper" id="pad-wrapper-${i}" style="grid-row: ${r}; grid-column: ${c};">
+                    <button class="pad-btn" id="btn-${i}">${coord}</button>
+                    <div class="pad-settings-panel">
+                        <div class="visual-tools-row">
+                            <input type="text" id="label-${i}" class="label-input" placeholder="ラベル">
+                            <div class="tool-group">
+                                <button class="group-btn" id="color-swatch-${i}">🎨</button>
+                                <button class="group-btn" id="color-reset-${i}">↺</button>
+                                <input type="color" id="color-${i}" value="#444444">
+                            </div>
+                            <div class="tool-group">
+                                <button class="group-btn" id="img-file-btn-${i}">🖼️</button>
+                                <button class="group-btn" id="img-clear-btn-${i}">❌</button>
+                                <input type="file" id="img-file-${i}" accept="image/*">
+                            </div> 
+                        </div>
+                        <div class="tool-group">
+                            <button class="group-btn" id="audio-file-btn-${i}">🎵</button>
+                            <div class="audio-display" id="audio-path-${i}">未設定</div>
+                            <button class="group-btn" id="audio-clear-btn-${i}">🗑️</button>
+                            <input type="file" id="file-${i}" accept="audio/*">
+                        </div>
+                        <div class="loop-vol-row">
+                            <div class="loop-wrapper"><input type="checkbox" id="loop-${i}"><label for="loop-${i}">Loop</label></div>
+                            <div class="vol-container"><span>Vol</span><input type="range" id="vol-${i}" min="0" max="1" step="0.05" value="1"></div>
+                        </div>
+                    </div>
+                    <audio id="audio-${i}"></audio>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        // --- DB & Init ---
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = e => { e.target.result.createObjectStore('pads', { keyPath: 'id' }); };
+        request.onsuccess = e => {
+            db = e.target.result;
+            loadConfig();
+            renderGrid();
+        };
+
+        function loadConfig() {
+            presetNameInput.value = localStorage.getItem('sampler_preset_name') || "Default Preset";
+            gridRows = parseInt(localStorage.getItem('sampler_rows')) || 3;
+            gridCols = parseInt(localStorage.getItem('sampler_cols')) || 3;
+            rowsInput.value = gridRows;
+            colsInput.value = gridCols;
+        }
+
+        function saveConfig() {
+            localStorage.setItem('sampler_rows', gridRows);
+            localStorage.setItem('sampler_cols', gridCols);
+            localStorage.setItem('sampler_preset_name', presetNameInput.value);
+        }
+
+        // --- Pad Operations ---
+        function setupPad(id) {
+            const el = {
+                btn: $('btn', id), audio: $('audio', id), file: $('file', id), img: $('img-file', id),
+                color: $('color', id), loop: $('loop', id), vol: $('vol', id), label: $('label', id), wrapper: $('pad-wrapper', id)
+            };
+
+            const sync = async () => { await savePadData(id); loadPadData(id); };
+
+el.btn.onclick = () => {
+    // 1. 移動モード中は何もしない
+    if (document.body.classList.contains('is-moving')) return;
+
+    // 2. 音源がない場合の処理（ここを厳重にします）
+    if (!el.audio.src || el.audio.src === window.location.href) {
+        // 光っているクラスを念のためすべて除去
+        el.btn.classList.remove('playing-loop', 'active-shot');
+        // 設定ボタンを点滅させて警告
+        return flashSettingsBtn();
+    }
+
+    // 3. 音源がある場合のみクラスを付与して再生
+    if (el.loop.checked) {
+        if (el.audio.paused) {
+            el.audio.currentTime = 0;
+            el.audio.play();
+            el.btn.classList.add('playing-loop');
+        } else {
+            el.audio.pause();
+            el.audio.currentTime = 0;
+            // クラス削除は onpause イベントで実行される
+        }
+    } else {
+        el.audio.currentTime = 0;
+        el.audio.play();
+        el.btn.classList.add('active-shot');
+    }
+};
+            el.audio.onended = el.audio.onpause = () => el.btn.classList.remove('playing-loop', 'active-shot');
+
+            $('audio-file-btn', id).onclick = () => el.file.click();
+            $('img-file-btn', id).onclick = () => el.img.click();
+            $('color-swatch', id).onclick = () => el.color.click();
+            $('audio-clear-btn', id).onclick = () => clearPadAsset(id, 'audio');
+            $('img-clear-btn', id).onclick = () => clearPadAsset(id, 'image');
+            $(`color-reset`, id).onclick = () => { el.color.value = getAutoPadColor(!!el.audio.src, el.loop.checked); sync(); };
+
+            el.file.onchange = async () => { 
+    const file = el.file.files[0];
+    if (file) { 
+        // 1. ラベルが未入力なら、ファイル名（拡張子なし）をセット
+        if (!el.label.value) {
+            el.label.value = stripExtension(file.name);
+        }
+
+        // 2. 自動色設定が有効なら色を変更
+        if (isAutoColor(el.color.value)) {
+            el.color.value = getAutoPadColor(true, el.loop.checked);
+        }
+
+        // 3. 保存して同期
+        await sync(); 
+    }
+};
+            el.img.onchange = async () => { if(el.img.files[0]) await sync(); };
+            el.color.oninput = () => { el.btn.style.backgroundColor = el.color.value; savePadData(id); };
+            el.loop.onchange = () => { el.audio.loop = el.loop.checked; if(isAutoColor(el.color.value)) el.color.value = getAutoPadColor(!!el.audio.src, el.loop.checked); sync(); };
+            el.vol.oninput = sync;
+            el.label.oninput = sync;
+
+            setupDragDrop(el.wrapper, id);
+        }
+
+        async function savePadData(id) {
+            const tx = db.transaction('pads', 'readwrite');
+            const store = tx.objectStore('pads');
+            const prev = await new Promise(r => store.get(id).onsuccess = e => r(e.target.result || {}));
+            
+            const fileInput = $('file', id);
+            const imgInput = $('img-file', id);
+
+            const data = {
+                id: id,
+                volume: $('vol', id).value,
+                loop: $('loop', id).checked,
+                color: $('color', id).value,
+                label: $('label', id).value,
+                file: fileInput.files[0] || prev.file || null,
+                imgFile: imgInput.files[0] || prev.imgFile || null,
+                fileName: fileInput.files[0] ? fileInput.files[0].name : prev.fileName
+            };
+            return new Promise(r => store.put(data).onsuccess = r);
+        }
+
+        function loadPadData(id) {
+            db.transaction('pads', 'readonly').objectStore('pads').get(id).onsuccess = e => {
+                const d = e.target.result;
+                const btn = $('btn', id);
+                const audio = $('audio', id);
+                if (!d) {
+                    btn.style.backgroundColor = PAD_COLOR_DEFAULT;
+                    btn.style.backgroundImage = '';
+                    btn.innerText = getCoordinateLabel(id);
+                    $('audio-path', id).innerText = "未設定";
+                    audio.src = "";
+                    return;
+                }
+                $('vol', id).value = d.volume;
+                audio.volume = d.volume;
+                $('loop', id).checked = d.loop;
+                audio.loop = d.loop;
+                $('color', id).value = d.color;
+                $('label', id).value = d.label || "";
+                btn.style.backgroundColor = d.color;
+                btn.innerText = d.label || (d.fileName ? stripExtension(d.fileName) : getCoordinateLabel(id));
+                if (d.imgFile) {
+                    btn.style.backgroundImage = `url(${URL.createObjectURL(d.imgFile)})`;
+                    btn.style.backgroundSize = "contain";
+                    if (!d.label) btn.innerText = "";
+                } else {
+                    btn.style.backgroundImage = '';
+                }
+                audio.src = d.file ? URL.createObjectURL(d.file) : "";
+                $('audio-path', id).innerText = d.fileName || "未設定";
+            };
+        }
+
+async function clearPadAsset(id, type) {
+            const config = { 
+                audio: { inputId: `file-${id}`, key: 'file', nameKey: 'fileName' }, 
+                image: { inputId: `img-file-${id}`, key: 'imgFile' } 
+            };
+            const t = config[type];
+            if (!confirm(`${type === 'audio' ? '音源' : '画像'}を削除しますか？`)) return;
+
+            $(t.inputId).value = ""; // input要素をクリアして復活バグを防止
+
+            const tx = db.transaction('pads', 'readwrite');
+            const store = tx.objectStore('pads');
+            const data = await new Promise(r => store.get(id).onsuccess = e => r(e.target.result));
+
+            if (data) {
+                // 1. 指定されたアセットを削除
+                data[t.key] = null;
+                if (t.nameKey) data[t.nameKey] = null;
+
+                // 2. 音源削除時の追加処理
+                if (type === 'audio') {
+                    // ラベルを空にする（これで loadPadData 時に座標が表示されるようになります）
+                    data.label = "";
+                    
+                    // 色が自動設定ならデフォルトに戻す
+                    if (isAutoColor(data.color)) {
+                        data.color = PAD_COLOR_DEFAULT;
+                    }
+                }
+
+                await new Promise(r => store.put(data).onsuccess = r);
+                loadPadData(id); // UIを再描画
+            }
+        }
+
+        // --- Others ---
+        settingsBtn.onclick = () => {
+            const isEditing = document.body.classList.toggle('is-editing');
+            if (isEditing) document.body.classList.remove('is-moving');
+            else saveConfig();
+            updateDraggability();
+            updateControlStates(isEditing);
+        };
+        moveModeBtn.onclick = () => {
+            const isMoving = document.body.classList.toggle('is-moving');
+            if (isMoving) {
+                document.body.classList.remove('is-editing');
+                document.querySelectorAll('audio').forEach(a => { a.pause(); a.currentTime = 0; });
+                document.querySelectorAll('.pad-btn').forEach(b => b.classList.remove('playing-loop', 'active-shot'));
+            }
+            updateDraggability();
+            updateControlStates(document.body.classList.contains('is-editing'));
+        };
+        rowsInput.onchange = e => { gridRows = parseInt(e.target.value); renderGrid(); };
+        colsInput.onchange = e => { gridCols = parseInt(e.target.value); renderGrid(); };
+        presetNameInput.oninput = () => saveConfig();
+
+        function updateDraggability() {
+            const moving = document.body.classList.contains('is-moving');
+            document.querySelectorAll('.pad-wrapper').forEach(w => w.draggable = moving);
+        }
+        function updateControlStates(isEditing) {
+            presetNameInput.disabled = !isEditing;
+            const moving = document.body.classList.contains('is-moving');
+            document.querySelectorAll('input, button:not(#settingsBtn):not(#moveModeBtn)').forEach(el => el.disabled = !isEditing);
+            document.querySelectorAll('.pad-btn').forEach(b => b.disabled = moving);
+        }
+        function flashSettingsBtn() { settingsBtn.style.color = "#ff4757"; setTimeout(()=> settingsBtn.style.color = "", 300); }
+        function clearAllData() { if(confirm("全消去しますか？")) { db.transaction('pads','readwrite').objectStore('pads').clear(); localStorage.clear(); location.reload(); } }
+
+        // --- Drag & Drop ---
+        let dragId = null;
+        function setupDragDrop(el, id) {
+            el.draggable = false;
+            el.ondragstart = e => { dragId = id; e.dataTransfer.effectAllowed = 'move'; el.style.opacity = '0.4'; };
+            el.ondragend = () => { el.style.opacity = '1'; document.querySelectorAll('.pad-wrapper').forEach(p => p.classList.remove('drag-over')); };
+            el.ondragover = e => e.preventDefault();
+            el.ondrop = async e => {
+                if (dragId !== id) {
+                    const tx = db.transaction('pads', 'readwrite');
+                    const store = tx.objectStore('pads');
+                    const d1 = await new Promise(r => store.get(dragId).onsuccess = ev => r(ev.target.result));
+                    const d2 = await new Promise(r => store.get(id).onsuccess = ev => r(ev.target.result));
+                    if (d1) store.put({...d1, id: id}); else store.delete(id);
+                    if (d2) store.put({...d2, id: dragId}); else store.delete(dragId);
+                    tx.oncomplete = () => { loadPadData(id); loadPadData(dragId); };
+                }
+            };
+        }
+
+        // --- Export/Import ---
+        async function fileToBase64(file) { return new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(file); }); }
+        function base64ToFile(b64, name) { if(!b64) return null; const p = b64.split(';base64,'); const raw = window.atob(p[1]); const u8 = new Uint8Array(raw.length); for(let i=0;i<raw.length;i++) u8[i]=raw.charCodeAt(i); return new File([u8], name, {type: p[0].split(':')[1]}); }
+        
+exportBtn.onclick = async () => {
+            // 1. 最新のプリセット名を取得（空なら 'Default' にする）
+            const currentPresetName = presetNameInput.value || "Default";
+            
+            const pads = await new Promise(r => db.transaction('pads').objectStore('pads').getAll().onsuccess = e => r(e.target.result));
+            const exportedPads = await Promise.all(pads.map(async p => ({ 
+                ...p, 
+                audioBase64: p.file ? await fileToBase64(p.file) : null, 
+                imageBase64: p.imgFile ? await fileToBase64(p.imgFile) : null, 
+                file: null, 
+                imgFile: null 
+            })));
+
+            const data = { 
+                presetName: currentPresetName, 
+                rows: gridRows, 
+                cols: gridCols, 
+                pads: exportedPads 
+            };
+
+            const a = document.createElement('a');
+            const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+            a.href = URL.createObjectURL(blob);
+            
+            // 2. ファイル名にプリセット名を適用（記号などを安全な文字に置換）
+            const safeFileName = currentPresetName.replace(/[\\/:*?"<>|]/g, '_');
+            a.download = `Sampler_${safeFileName}.json`;
+            
+            a.click();
+            URL.revokeObjectURL(a.href); // メモリ解放
+        };
+        importTriggerBtn.onclick = () => importFileInput.click();
+        importFileInput.onchange = e => {
+            const rd = new FileReader();
+            rd.onload = async ev => {
+                const data = JSON.parse(ev.target.result);
+                if (!confirm("データを上書きしますか？")) return;
+                gridRows = data.rows; gridCols = data.cols; presetNameInput.value = data.presetName; saveConfig();
+                const tx = db.transaction('pads', 'readwrite'); const store = tx.objectStore('pads'); store.clear();
+                data.pads.forEach(p => { store.put({ ...p, file: base64ToFile(p.audioBase64, p.fileName), imgFile: base64ToFile(p.imageBase64, "image.png") }); });
+                tx.oncomplete = () => location.reload();
+            };
+            rd.readAsText(e.target.files[0]);
+        };
+        bulkAudioBtn.onclick = () => bulkFileInput.click();
+bulkFileInput.onchange = async () => {
+            const files = Array.from(bulkFileInput.files);
+            if (files.length === 0) return;
+
+            const tx = db.transaction('pads', 'readwrite');
+            const store = tx.objectStore('pads');
+            
+            // 既にデータ（音源名）があるIDを把握
+            const used = await new Promise(r => store.getAll().onsuccess = e => r(new Set(e.target.result.filter(p=>p.fileName).map(p=>p.id))));
+            
+            let fileIdx = 0;
+            let currentRow = 1;
+            let currentCol = 1;
+
+            // ファイルがなくなるまでループを回す
+            while (fileIdx < files.length) {
+                const id = getFixedId(currentRow, currentCol);
+
+                // まだ音源が設定されていないパッドなら流し込む
+                if (!used.has(id)) {
+                    const f = files[fileIdx++];
+                    store.put({ 
+                        id, 
+                        volume: 1, 
+                        loop: false, 
+                        color: PAD_COLOR_SHOT, 
+                        label: stripExtension(f.name), 
+                        file: f, 
+                        fileName: f.name 
+                    });
+                }
+
+                // 次の座標へ（右へ進み、端まで行ったら下の行の左端へ）
+                currentCol++;
+                if (currentCol > gridCols) {
+                    currentCol = 1;
+                    currentRow++;
+                }
+
+                // 安全ブレーキ：無限ループ防止（必要に応じて）
+                if (currentRow > 100) break; 
+            }
+
+            tx.oncomplete = () => {
+                // もし読み込んだ結果、現在の行数を超えていたらグリッドを拡張する
+                if (currentRow > gridRows) {
+                    gridRows = currentRow;
+                    if (currentCol === 1) gridRows--; // ちょうど末尾で終わった場合の調整
+                    rowsInput.value = gridRows;
+                    saveConfig();
+                }
+                renderGrid();
+            };
+        };
+    </script>
+</body>
+</html>
