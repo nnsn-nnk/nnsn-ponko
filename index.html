@@ -199,7 +199,7 @@
 
             <div class="control-group" style="margin-left: 10px;">
                 <button class="header-icon-btn" id="bulkAudioBtn">一括設定 🎵</button>
-                <input type="file" id="bulkFileInput" accept="audio/*" multiple>
+                <input type="file" id="bulkFileInput" accept=".mp3,.m4a,.aac,audio/mpeg,audio/mp4,audio/x-m4a" multiple>
                 <button class="reset-btn" onclick="clearAllData()">⚠ 全リセット</button>
             </div>
             
@@ -297,7 +297,7 @@
                             <button class="group-btn" id="audio-file-btn-${i}">🎵</button>
                             <div class="audio-display" id="audio-path-${i}">未設定</div>
                             <button class="group-btn" id="audio-clear-btn-${i}">🗑️</button>
-                            <input type="file" id="file-${i}" accept="audio/*">
+                            <input type="file" id="file-${i}" accept=".mp3,.m4a,.aac,audio/mpeg,audio/mp4,audio/x-m4a">
                         </div>
                         <div class="loop-vol-row">
                             <div class="loop-wrapper"><input type="checkbox" id="loop-${i}"><label for="loop-${i}">Loop</label></div>
@@ -656,3 +656,4 @@ bulkFileInput.onchange = async () => {
     </script>
 </body>
 </html>
+
