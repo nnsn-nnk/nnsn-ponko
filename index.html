@@ -536,9 +536,17 @@
                 <span>Cols:</span>
                 <input type="number" id="colsInput" class="grid-input" min="1" max="10" value="3">
             </div>
+
+            <div class="control-group" id="bulkControls"
+                style="margin-left: 10px; border-left: 1px solid #555; padding-left: 10px; gap: 10px;">
+                <span style="font-size: 12px; color: #888;">Master:</span>
+            </div>
+
         </div>
 
         <div class="header-actions">
+            <button class="header-icon-btn" id="stopAllBtn" title="全音源停止"
+                style="border-color: var(--reset-color); color: var(--reset-color);">🛑</button>
             <button class="header-icon-btn" id="moveModeBtn" title="配置入替">✥</button>
             <button class="header-icon-btn" id="settingsBtn" title="設定">⚙️</button>
         </div>
@@ -612,6 +620,45 @@
             }
             updateDraggability();
             updateControlStates(document.body.classList.contains('is-editing'));
+        }
+
+        // 全停止関数の定義
+        function stopAllAudio() {
+            console.log("Stopping all audio...");
+            // ページ内のすべてのaudio要素を停止
+            const audios = document.getElementsByTagName('audio');
+            for (let audio of audios) {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+            // 再生中表示（クラス）もすべて除去
+            document.querySelectorAll('.pad-btn').forEach(btn => {
+                btn.classList.remove('playing-loop', 'active-shot');
+            });
+        }
+
+        function updateControlStates(isEditing) {
+            presetNameInput.disabled = !isEditing;
+            const moving = document.body.classList.contains('is-moving');
+
+            // 🛑ボタン(stopAllBtn)を「無効化」の対象から絶対に外す設定
+            const allElements = document.querySelectorAll('input, button');
+            allElements.forEach(el => {
+                // 設定ボタン、移動ボタン、そして「全停止ボタン」は一括無効化の対象外にする
+                if (el.id === 'settingsBtn' || el.id === 'moveModeBtn' || el.id === 'stopAllBtn') {
+                    return;
+                }
+                el.disabled = !isEditing;
+            });
+
+            // パッド自体のボタンは、移動モード中のみ無効
+            document.querySelectorAll('.pad-btn').forEach(b => b.disabled = moving);
+
+            // 🛑ボタンは、移動モード中でなければ常に「有効」にする
+            const stopBtn = document.getElementById('stopAllBtn');
+            if (stopBtn) {
+                stopBtn.disabled = moving;
+            }
         }
 
         function createPadHTML(i, r, c) {
@@ -847,11 +894,12 @@
             const isMoving = document.body.classList.toggle('is-moving');
             if (isMoving) {
                 document.body.classList.remove('is-editing');
-                document.querySelectorAll('audio').forEach(a => { a.pause(); a.currentTime = 0; });
-                document.querySelectorAll('.pad-btn').forEach(b => b.classList.remove('playing-loop', 'active-shot'));
             }
             updateDraggability();
             updateControlStates(document.body.classList.contains('is-editing'));
+            if (typeof stopAllAudio === 'function') {
+                stopAllAudio();
+            }
         };
         rowsInput.onchange = e => { gridRows = parseInt(e.target.value); renderGrid(); };
         colsInput.onchange = e => { gridCols = parseInt(e.target.value); renderGrid(); };
@@ -864,7 +912,21 @@
         function updateControlStates(isEditing) {
             presetNameInput.disabled = !isEditing;
             const moving = document.body.classList.contains('is-moving');
-            document.querySelectorAll('input, button:not(#settingsBtn):not(#moveModeBtn)').forEach(el => el.disabled = !isEditing);
+            const allBtns = document.querySelectorAll('input, button');
+            allBtns.forEach(btn => {
+                // 設定ボタン(⚙️)と移動ボタン(✥)は、どんな時も絶対に disabled にしない
+                if (btn.id === 'settingsBtn' || btn.id === 'moveModeBtn') {
+                    btn.disabled = false;
+                    return;
+                }
+                // 全停止ボタンは、移動モード中のみ無効（誤操作防止）
+                if (btn.id === 'stopAllBtn') {
+                    btn.disabled = moving;
+                    return;
+                }
+                // それ以外のボタンは設定モード中のみ有効
+                btn.disabled = !isEditing;
+            });
             document.querySelectorAll('.pad-btn').forEach(b => b.disabled = moving);
         }
         function flashSettingsBtn() { settingsBtn.style.color = "#ff4757"; setTimeout(() => settingsBtn.style.color = "", 300); }
@@ -994,17 +1056,29 @@
             };
         };
 
-        // ページ読み込み時にURLをセット
+        // DOM読み込み完了時の処理をまとめる
         window.addEventListener('DOMContentLoaded', () => {
+            // イベントリスナーを確実に設定
+            const stopBtn = document.getElementById('stopAllBtn');
+            if (stopBtn) {
+                stopBtn.addEventListener('click', stopAllAudio);
+            }
+
             const postLink = document.getElementById('xPostLink');
             if (postLink) {
                 postLink.href = CURRENT_X_POST_URL;
             }
+
+            // フッター高さの初期設定
+            updateFooterHeight();
+            // 初期状態のコントロール制御
+            updateControlStates(false);
         });
 
         // フッターの高さを監視して変数にセット
         const footer = document.querySelector('footer');
         const updateFooterHeight = () => {
+            if (!footer) return;
             const height = footer.offsetHeight;
             document.documentElement.style.setProperty('--footer-height', `${height}px`);
         };
@@ -1013,8 +1087,7 @@
         const footerObserver = new ResizeObserver(updateFooterHeight);
         footerObserver.observe(footer);
 
-        updateFooterHeight();
-    </script>
+</script>
 </body>
 
 </html>
